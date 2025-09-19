@@ -33,11 +33,10 @@ jobs:
       - name: Generate TWRP makefiles
         working-directory: twrp/device/lge/v600tm
         run: |
-          cat > AndroidProducts.mk << 'EOF'
-PRODUCT_MAKEFILES := \
-    \$(LOCAL_PATH)/device_lge_v600tm.mk
+          cat > AndroidProducts.mk << EOF
+PRODUCT_MAKEFILES := \$(LOCAL_PATH)/device_lge_v600tm.mk
 EOF
-          cat > device_lge_v600tm.mk << 'EOF'
+          cat > device_lge_v600tm.mk << EOF
 PRODUCT_NAME := twrp_v600tm
 PRODUCT_DEVICE := v600tm
 PRODUCT_BRAND := lge
@@ -46,7 +45,7 @@ PRODUCT_MANUFACTURER := LGE
 
 \$(call inherit-product, vendor/twrp/config/common-twrp-device.mk)
 EOF
-          cat > BoardConfig.mk << 'EOF'
+          cat > BoardConfig.mk << EOF
 BOARD_NAME := v600tm
 TARGET_ARCH := arm64
 TARGET_ARCH_VARIANT := cortex-a53
