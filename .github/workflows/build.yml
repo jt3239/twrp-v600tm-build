@@ -15,20 +15,26 @@ jobs:
           path: twrp
           ref: twrp-12.1
 
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git-core gnupg flex bison build-essential \
+            zip unzip curl repo \
+            golang-go ninja-build clang lld \
+            openjdk-11-jdk device-tree-compiler
+
       - name: Sync TWRP sources (1-job)
         working-directory: twrp
         run: |
-          sudo apt-get update
-          sudo apt-get install -y repo
           repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git \
             -b twrp-12.1 --depth=1
           repo sync -c --force-sync --no-tags -j1
 
       - name: Inject LG v600tm device tree
-        working-directory: twrp
         run: |
-          mkdir -p device/lge/v600tm
-          cp -r ../device/lge/v600tm/devicetree/* device/lge/v600tm/
+          mkdir -p twrp/device/lge/v600tm
+          cp -r device/lge/v600tm/devicetree/* twrp/device/lge/v600tm/
 
       - name: Generate TWRP makefiles
         working-directory: twrp/device/lge/v600tm
@@ -55,18 +61,19 @@ BOARD_RECOVERYIMAGE_PARTITION_SIZE := 0x02000000
 BOARD_SYSTEMIMAGE_PARTITION_SIZE   := 0x200000000
 EOF
 
-      - name: Install build dependencies
+      - name: Debug: List build directory contents
+        working-directory: twrp
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git-core gnupg flex bison build-essential \
-            zip unzip curl repo \
-            golang-go ninja-build clang lld \
-            openjdk-11-jdk device-tree-compiler
+          ls -la
+          ls -la build || true
 
       - name: Build only the recovery image
         working-directory: twrp
+        shell: bash
         run: |
+          if [ ! -f build/envsetup.sh ]; then
+            echo "envsetup.sh not found!"; exit 1
+          fi
           source build/envsetup.sh
           lunch twrp_v600tm-eng
           make -j1 recoveryimage
