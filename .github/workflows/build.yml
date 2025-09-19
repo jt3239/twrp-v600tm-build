@@ -1,0 +1,81 @@
+name: Build TWRP for LG v600tm
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-recovery:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout TWRP manifest
+      uses: actions/checkout@v3
+      with:
+        repository: minimal-manifest-twrp/platformmanifesttwrp_aosp
+        path: twrp
+        ref: twrp-12.1
+
+    - name: Sync TWRP sources (1-job)
+      working-directory: twrp
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y repo
+        repo init -u https://github.com/minimal-manifest-twrp/platformmanifesttwrp_aosp.git \
+                  -b twrp-12.1 --depth=1
+        repo sync -c --force-sync --no-tags -j1
+
+    - name: Inject LG v600tm device tree
+      working-directory: twrp
+      run: |
+        mkdir -p device/lge/v600tm
+        cp -r ../device/lge/v600tm/devicetree/* device/lge/v600tm/
+
+    - name: Generate TWRP makefiles
+      working-directory: twrp/device/lge/v600tm
+      run: |
+        cat > AndroidProducts.mk << 'EOM'
+PRODUCT_MAKEFILES := \
+    \$(LOCALPATH)/devicelge_v600tm.mk
+EOM
+
+        cat > devicelgev600tm.mk << 'EOM'
+PRODUCTNAME := twrpv600tm
+PRODUCT_DEVICE := v600tm
+PRODUCT_BRAND := lge
+PRODUCT_MODEL := LGV600TM
+PRODUCT_MANUFACTURER := LGE
+
+\$(call inherit-product, vendor/twrp/config/common-twrp-device.mk)
+EOM
+
+        cat > BoardConfig.mk << 'EOM'
+BOARD_NAME := v600tm
+TARGET_ARCH := arm64
+TARGETARCHVARIANT := cortex-a53
+TARGETCPUVARIANT := cortex-a53
+BOARDPREBUILTDTBO_IMAGE := device/lge/v600tm/prebuilt-dtb/v600tm.dtb
+BOARDRECOVERYIMAGEPARTITION_SIZE := 0x02000000
+BOARDSYSTEMIMAGEPARTITION_SIZE   := 0x200000000
+EOM
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git-core gnupg flex bison build-essential \
+          zip unzip curl repo \
+          golang-go ninja-build clang lld \
+          openjdk-11-jdk device-tree-compiler
+
+    - name: Build only the recovery image
+      working-directory: twrp
+      run: |
+        source build/envsetup.sh
+        lunch twrp_v600tm-eng
+        make -j1 recoveryimage
+
+    - name: Upload recovery.img artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: twrpv600tmrecovery
+        path: twrp/out/target/product/v600tm/recovery.img
